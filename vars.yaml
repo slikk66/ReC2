@@ -1,0 +1,17 @@
+---
+stack_prefix: rec2
+region: us-west-2
+credit_instance_size: t2.medium
+standard_instance_size: c4.large
+scale_down:
+  alarm_duration: 5
+  threshold: 10
+  cooldown: 60
+credits:
+  alarm_duration: 10
+  threshold: 2
+  cooldown: 10
+  group_percent: 25
+enabled: True
+asg_identifier: your-asg-name
+...

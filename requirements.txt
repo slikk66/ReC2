@@ -1,0 +1,8 @@
+ansible
+awscli
+freezegun
+datetime
+pyyaml
+pytest
+boto3
+pytest-cov
