@@ -2,12 +2,6 @@
 from troposphere import Template, Parameter, awslambda, Join, Ref, Output
 t = Template()
 
-rds_instance = t.add_parameter(Parameter(
-    'RdsInstance',
-    Type='String',
-    Description='Instance to monitor'
-))
-
 lambda_role = t.add_parameter(Parameter(
     'LambdaRole',
     Type='String',
@@ -28,14 +22,14 @@ time_token = t.add_parameter(Parameter(
 
 lambda_function = t.add_resource(
     awslambda.Function(
-        "reds",
+        "rec2",
         Code=awslambda.Code(
             S3Bucket=Ref(bucket_name),
-            S3Key=Join("",["reds-",Ref(time_token),".zip"])
+            S3Key=Join("", ["rec2-", Ref(time_token), ".zip"])
         ),
-        Handler="reds.lambda_handler",
+        Handler="rec2.lambda_handler",
         MemorySize=128,
-        Role=Join('',['arn:aws:iam::',Ref("AWS::AccountId"),':role/',Ref(lambda_role)]),
+        Role=Join('', ['arn:aws:iam::', Ref("AWS::AccountId"), ':role/', Ref(lambda_role)]),
         Runtime="python2.7",
         Timeout=30
     )
@@ -44,7 +38,7 @@ lambda_function = t.add_resource(
 t.add_output([
     Output(
         'LambdaFunction',
-        Description='ReDS Lambda Function',
+        Description='ReC2 Lambda Function',
         Value=Ref(lambda_function),
     )
 ])

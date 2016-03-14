@@ -5,25 +5,11 @@ from troposphere.cloudwatch import Alarm, MetricDimension
 
 t = Template()
 
-rds_instance = t.add_parameter(Parameter(
-    'RdsInstance',
+asg_name = t.add_parameter(Parameter(
+    'AsgName',
     Type='String',
-    Description='Instance to monitor'
+    Description='Autoscaling Group to monitor'
 ))
-
-up_threshold = t.add_parameter(
-    Parameter(
-        'UpThreshold',
-        Type='String'
-    )
-)
-
-up_evaluations = t.add_parameter(
-    Parameter(
-        'UpEvaluations',
-        Type='String'
-    )
-)
 
 down_threshold = t.add_parameter(
     Parameter(
@@ -53,41 +39,18 @@ credit_evaluations = t.add_parameter(
     )
 )
 
-high_cpu_alarm = t.add_resource(
-    Alarm(
-        "ReDSAlarmHigh",
-        AlarmDescription="CPU High Alarm",
-        Namespace="AWS/RDS",
-        MetricName="CPUUtilization",
-        Statistic="Average",
-        Period=60,
-        Dimensions=[
-            MetricDimension(
-                Name="DBInstanceIdentifier",
-                Value=Ref(rds_instance)
-            )
-        ],
-        EvaluationPeriods=Ref(up_evaluations),
-        Threshold=Ref(up_threshold),
-        ComparisonOperator="GreaterThanOrEqualToThreshold",
-        AlarmActions=[],
-        InsufficientDataActions=[],
-        OKActions=[],
-    )
-)
-
 low_cpu_alarm = t.add_resource(
     Alarm(
-        "ReDSAlarmLow",
+        "ReC2AlarmLow",
         AlarmDescription="CPU Low Alarm",
-        Namespace="AWS/RDS",
+        Namespace="AWS/EC2",
         MetricName="CPUUtilization",
         Statistic="Average",
         Period=60,
         Dimensions=[
             MetricDimension(
-                Name="DBInstanceIdentifier",
-                Value=Ref(rds_instance)
+                Name="AutoScalingGroupName",
+                Value=Ref(asg_name)
             )
         ],
         EvaluationPeriods=Ref(down_evaluations),
@@ -101,16 +64,16 @@ low_cpu_alarm = t.add_resource(
 
 low_credit_alarm = t.add_resource(
     Alarm(
-        "ReDSNoCredits",
+        "ReC2NoCredits",
         AlarmDescription="CPU Credits Exhausted Alarm",
-        Namespace="AWS/RDS",
+        Namespace="AWS/EC2",
         MetricName="CPUCreditBalance",
-        Statistic="Maximum",
-        Period=60,
+        Statistic="Average",
+        Period=300,
         Dimensions=[
             MetricDimension(
-                Name="DBInstanceIdentifier",
-                Value=Ref(rds_instance)
+                Name="AutoScalingGroupName",
+                Value=Ref(asg_name)
             )
         ],
         EvaluationPeriods=Ref(credit_evaluations),

@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 
-from troposphere import Template, Parameter, iam, Join, Ref, Output
+from troposphere import Template, iam, Ref, Output
 from awacs.aws import Action, Allow, Policy, Principal, Statement
 
 t = Template()
-
-rds_instance = t.add_parameter(Parameter(
-    'RdsInstance',
-    Type='String',
-    Description='Instance to monitor'
-))
 
 role = t.add_resource(iam.Role(
     "lambdarole",
@@ -31,20 +25,13 @@ role = t.add_resource(iam.Role(
                 Statement(
                     Effect=Allow,
                     Action=[
-                        Action('rds', 'DescribeDBInstances'),
-                        Action('rds', 'DescribeEvents'),
+                        Action('autoscaling', 'CreateLaunchConfiguration'),
+                        Action('autoscaling', 'DescribeLaunchConfigurations'),
+                        Action('autoscaling', 'DescribeAutoScalingGroups'),
+                        Action('autoscaling', 'UpdateAutoScalingGroup'),
                     ],
                     Resource=[
                         "*"
-                    ]
-                ),
-                Statement(
-                    Effect=Allow,
-                    Action=[
-                        Action('rds', 'ModifyDBInstance'),
-                    ],
-                    Resource=[
-                        Join('', ['arn:aws:rds:',Ref("AWS::Region"),':',Ref("AWS::AccountId"),':db:',Ref(rds_instance)]),
                     ]
                 ),
                 Statement(
@@ -73,7 +60,7 @@ role = t.add_resource(iam.Role(
 t.add_output([
     Output(
         'LambdaRole',
-        Description='ReDS Lambda Role ARN',
+        Description='ReC2 Lambda Role ARN',
         Value=Ref(role),
     )
 ])

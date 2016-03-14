@@ -2,24 +2,11 @@ import boto3
 import yaml
 import datetime
 
+
 class rec2:
 
-    def __init__(self):
-        self.rds_client = None
-        self.cloudwatch_client = None
-        self.now = None
-        self.vars = None
-        self.alarms = None
-        self.in_scheduled_up = None
-        self.details = None
-        self.alarm_status = None
-        self.execute = None
-        self.events = None
-        self.result = None
-        self.on_index = None
-
     def lambda_startup(self):
-        self.rds_client = boto3.client('rds')
+        self.ec2_client = boto3.client('ec2')
         self.cloudwatch_client = boto3.client('cloudwatch')
 
         self.now = datetime.datetime.utcnow()
@@ -28,7 +15,7 @@ class rec2:
             yaml.load(file('vars.yaml')), yaml.load(file('alarms.yaml')))
 
         self.process(
-            self.rds_client.describe_db_instances(
+            self.ec2_client.describe_db_instances(
                 DBInstanceIdentifier=self.vars['rds_identifier']
             )['DBInstances'][0],
             self.cloudwatch_client.describe_alarms(
@@ -37,7 +24,7 @@ class rec2:
                     self.alarms['alarm_low'],
                     self.alarms['alarm_credits'],
                 ]),
-            self.rds_client.describe_events(
+            self.ec2_client.describe_events(
                 SourceIdentifier=self.vars['rds_identifier'],
                 SourceType="db-instance",
                 EventCategories=[
@@ -108,50 +95,6 @@ class rec2:
         except ValueError:
             return self.abort("Instance size not in list!")
 
-        if self.vars['schedule_enabled']:
-            self.info("Checking to see if we are in a scheduled uptime")
-
-            cron_up = croniter.croniter(
-                self.vars['scale_up']['cron'], self.now)
-            prev_up_exec = cron_up.get_prev(datetime.datetime)
-            next_up_exec = cron_up.get_next(datetime.datetime)
-
-            cron_down = croniter.croniter(
-                self.vars['scale_down']['cron'], self.now)
-            prev_down_exec = cron_down.get_prev(datetime.datetime)
-            next_down_exec = cron_down.get_next(datetime.datetime)
-
-            self.info("Prev CRON Up {}".format(prev_up_exec))
-            self.info("Prev CRON Down {}".format(prev_down_exec))
-            self.info("Next CRON Up {}".format(next_up_exec))
-            self.info("Next CRON Down {}".format(next_down_exec))
-
-            self.info("Current Time {}".format(self.now))
-
-            if prev_down_exec < prev_up_exec < next_down_exec < next_up_exec \
-                    and prev_up_exec < self.now < next_down_exec:
-                self.in_scheduled_up = True
-                self.info("In middle of a scheduled uptime! " +
-                          "PrevUp/Current/NextDown {}/{}/{}".format(
-                              prev_up_exec,
-                              self.now,
-                              next_down_exec
-                          ))
-                try:
-                    up_db = self.vars['instance_sizes'][
-                        self.vars['scheduled_index']]
-                except IndexError:
-                    return self.abort("invalid scheduled_index")
-                self.info("Min allowed instance size is: {}".format(up_db))
-                if self.on_index < self.vars['scheduled_index']:
-                    self.info("Running scheduled scale up to {}".format(
-                        self.vars['instance_sizes'][self.vars['scheduled_index']]))
-                    return self.scale('scale_up', self.vars['scheduled_index'])
-            else:
-                self.info("Not in middle of a scheduled uptime")
-        else:
-            self.info("Scheduling not enabled")
-
         self.info("Checking alarm statuses")
 
         if self.details['DBInstanceClass'].startswith('db.t') and \
@@ -175,24 +118,6 @@ class rec2:
 
         return self.abort("Nothing to do")
 
-    def assert_cooldown_expired(self, reason):
-        cooldown = self.vars[reason]['cooldown']
-        self.info(
-            "cooldown period (minutes) for {} is {}".format(reason, cooldown))
-        for mod in self.events['Events'][::-1]:
-            if mod['Message'].startswith("Finished applying modification to DB instance class"):
-                delta_time = self.now.replace(tzinfo=pytz.utc) - mod['Date']
-                delta_time_calculated = divmod(
-                    delta_time.days * 86400 + delta_time.seconds, 60)
-                self.info("Last finished modification {} Diff: (Min, Sec): {}".format(
-                    mod['Date'], delta_time_calculated))
-                if delta_time_calculated[0] < cooldown:
-                    self.info("Not enough time has passed since last modification ({})".format(
-                        cooldown))
-                    return False
-                break
-        return True
-
     def scale(self, reason, to_index=None):
         if not self.vars['enabled']:
             return self.abort("Resizing disabled")
@@ -213,7 +138,7 @@ class rec2:
 
     def lambda_apply_action(self):
         if self.result['Action'] == 'RESIZE':
-            amz_res = self.rds_client.modify_db_instance(
+            amz_res = self.ec2_client.modify_db_instance(
                 DBInstanceIdentifier=self.vars['rds_identifier'],
                 DBInstanceClass=self.result['Message'],
                 ApplyImmediately=True)
@@ -225,7 +150,7 @@ class rec2:
 
 
 def lambda_handler(context, event):
-    red = reds()
-    red.lambda_startup()
-    red.lambda_apply_action()
-    red.print_logs()
+    r2 = rec2()
+    r2.lambda_startup()
+    r2.lambda_apply_action()
+    r2.print_logs()

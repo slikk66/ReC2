@@ -39,9 +39,6 @@
         state=present
         region="{{region}}"
         template={{ playbook_dir }}/json/iam-assets.json
-    args:
-        template_parameters:
-            RdsInstance: "{{ rds_identifier }}"
     register: iam
 
   - name: Create Lambda Bucket
