@@ -29,6 +29,7 @@ role = t.add_resource(iam.Role(
                         Action('autoscaling', 'DescribeLaunchConfigurations'),
                         Action('autoscaling', 'DescribeAutoScalingGroups'),
                         Action('autoscaling', 'UpdateAutoScalingGroup'),
+                        Action('autoscaling', 'CreateOrUpdateTags'),
                     ],
                     Resource=[
                         "*"

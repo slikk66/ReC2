@@ -5,8 +5,8 @@ from troposphere.cloudwatch import Alarm, MetricDimension
 
 t = Template()
 
-asg_name = t.add_parameter(Parameter(
-    'AsgName',
+asg_identifier = t.add_parameter(Parameter(
+    'AsgIdentifier',
     Type='String',
     Description='Autoscaling Group to monitor'
 ))
@@ -39,9 +39,23 @@ credit_evaluations = t.add_parameter(
     )
 )
 
+drag_threshold = t.add_parameter(
+    Parameter(
+        'DragThreshold',
+        Type='String'
+    )
+)
+
+drag_evaluations = t.add_parameter(
+    Parameter(
+        'DragEvaluations',
+        Type='String'
+    )
+)
+
 low_cpu_alarm = t.add_resource(
     Alarm(
-        "ReC2AlarmLow",
+        "ReC2LowCpu",
         AlarmDescription="CPU Low Alarm",
         Namespace="AWS/EC2",
         MetricName="CPUUtilization",
@@ -50,7 +64,7 @@ low_cpu_alarm = t.add_resource(
         Dimensions=[
             MetricDimension(
                 Name="AutoScalingGroupName",
-                Value=Ref(asg_name)
+                Value=Ref(asg_identifier)
             )
         ],
         EvaluationPeriods=Ref(down_evaluations),
@@ -65,7 +79,7 @@ low_cpu_alarm = t.add_resource(
 low_credit_alarm = t.add_resource(
     Alarm(
         "ReC2NoCredits",
-        AlarmDescription="CPU Credits Exhausted Alarm",
+        AlarmDescription="CPU Credits Exhausted Average Alarm",
         Namespace="AWS/EC2",
         MetricName="CPUCreditBalance",
         Statistic="Average",
@@ -73,7 +87,7 @@ low_credit_alarm = t.add_resource(
         Dimensions=[
             MetricDimension(
                 Name="AutoScalingGroupName",
-                Value=Ref(asg_name)
+                Value=Ref(asg_identifier)
             )
         ],
         EvaluationPeriods=Ref(credit_evaluations),
@@ -85,11 +99,34 @@ low_credit_alarm = t.add_resource(
     )
 )
 
+drag_credit_alarm = t.add_resource(
+    Alarm(
+        "ReC2DragCredits",
+        AlarmDescription="CPU Credits Exhausted (at least one)",
+        Namespace="AWS/EC2",
+        MetricName="CPUCreditBalance",
+        Statistic="Minimum",
+        Period=300,
+        Dimensions=[
+            MetricDimension(
+                Name="AutoScalingGroupName",
+                Value=Ref(asg_identifier)
+            )
+        ],
+        EvaluationPeriods=Ref(drag_evaluations),
+        Threshold=Ref(drag_threshold),
+        ComparisonOperator="LessThanOrEqualToThreshold",
+        AlarmActions=[],
+        InsufficientDataActions=[],
+        OKActions=[],
+    )
+)
+
 t.add_output([
     Output(
-        'UpAlarm',
-        Description='Alarm name for up/high',
-        Value=Ref(high_cpu_alarm)
+        'DragAlarm',
+        Description='Alarm name for instance dragging',
+        Value=Ref(drag_credit_alarm)
     ),
     Output(
         'DownAlarm',

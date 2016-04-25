@@ -24,15 +24,16 @@ class rec2:
                 AlarmNames=[
                     self.alarms['alarm_low'],
                     self.alarms['alarm_credits'],
+                    self.alarms['alarm_drag'],
                 ]),
 
             self.autoscaling_client.describe_launch_configurations()['LaunchConfigurations']
         )
 
-    def testing_startup(self, _vars, _alarms, _details, _alarm_status, _launch_configurations):
+    def testing_startup(self, _vars, _alarms, _asg_details, _alarm_status, _launch_configurations):
         self.now = datetime.datetime.utcnow()
         self.set_vars(_vars, _alarms)
-        self.process(_details, _alarm_status, _launch_configurations, False)
+        self.process(_asg_details, _alarm_status, _launch_configurations, False)
         self.print_logs()
 
     def set_vars(self, _vars, _alarms):
@@ -50,15 +51,14 @@ class rec2:
         self.result['Logs'].append("{}: {}".format("INFO", msg))
 
     def success(self, msg):
-        self.result['Action'] = 'RESIZE'
+        self.result['Action'] = 'MODIFY'
         self.result['Message'] = msg
         self.result['Logs'].append(
             "{}: {}".format(self.result['Action'], self.result['Message']))
         return self.result
 
-    def process(self, _details, _alarm_status, _launch_configurations, _execute=True):
+    def process(self, _asg_details, _alarm_status, _launch_configurations, _execute=True):
         self.config = False
-        self.in_scheduled_up = False
 
         self.result = {
             "Action": None,
@@ -66,7 +66,7 @@ class rec2:
             "Logs": []
         }
 
-        self.details = _details
+        self.asg_details = _asg_details
         self.alarm_status = _alarm_status
         self.launch_configurations = _launch_configurations
         self.execute = _execute
@@ -78,20 +78,17 @@ class rec2:
         self.info("Querying ASG: {}".format(self.vars['asg_identifier']))
 
         for config in self.launch_configurations:
-            if 'LaunchConfigurationName' not in config:
-                return self.abort("No LaunchConfig found in ASG! {}".format(self.vars['asg_identifier']))
-            if config['LaunchConfigurationName'] == self.details['LaunchConfigurationName']:
-                self.info("Found active Launch Config: {}".format(self.details['LaunchConfigurationName']))
+            if config['LaunchConfigurationName'] == self.asg_details['LaunchConfigurationName']:
+                self.info("Found active Launch Config: {}".format(self.asg_details['LaunchConfigurationName']))
                 self.info("Config Instance Type: {}".format(config['InstanceType']))
-                self.info("Config Created: {}".format(config['CreatedTime']))
                 self.config = config
                 break
 
         if not self.config:
-            self.abort('Config not found!')
+            return self.abort('Config not found!')
 
         if config['InstanceType'] not in [self.vars['credit_instance_size'],self.vars['standard_instance_size']]:
-            self.abort("Current instance type not in allowed sizes! Current: {}, Credit: {}, Standard: {}".format(config['InstanceType'],self.vars['credit_instance_size'],self.vars['standard_instance_size']))
+            return self.abort("Current instance type not in allowed sizes! Current: {}, Credit: {}, Standard: {}".format(config['InstanceType'],self.vars['credit_instance_size'],self.vars['standard_instance_size']))
 
         if config['InstanceType'] == self.vars['credit_instance_size']:
             self.info("Checking if need to INCREASE")
@@ -100,32 +97,61 @@ class rec2:
             self.info("Checking if need to DECREASE")
             return self.check_decrease()
 
+
     def check_increase(self):
-        pass
+        self.info("Checking low credit alarm status")
+        if self.alarm_status['MetricAlarms'][1]['StateValue'] == 'ALARM':
+            self.info("Low Credit Alarm in ALARM!")
+            self.scale('to_standard', self.vars['standard_instance_size'])
+
+        if self.vars['drag_enabled']:
+            self.info("Checking drag alarm status")
+            if self.alarm_status['MetricAlarms'][2]['StateValue'] == 'ALARM':
+                self.info("Credit Drag Alarm in ALARM!")
+                self.scale('to_standard', self.vars['standard_instance_size'])
+        else:
+            self.info("Skipping drag alarm check: disabled")
+        return self.abort("Nothing to do")
 
     def check_decrease(self):
-        pass
+        self.info("Checking low cpu alarm status")
+        if self.alarm_status['MetricAlarms'][0]['StateValue'] == 'ALARM':
+            self.info("Low CPU Alarm in ALARM!")
+            self.scale('to_credit', self.vars['credit_instance_size'])
+        return self.abort("Nothing to do")
+
+    def assert_cooldown_expired(self, reason):
+        last_rec2_change = False
+        if reason == 'to_standard':
+            return True
+        self.info("Checking for last to_standard event")
+        for tag in self.asg_details['Tags']:
+            if tag['Key'] == 'rec2-modify-to-standard':
+                last_rec2_change = tag['Value']
+                break
+        if last_rec2_change:
+            # compare, if too soon return false
+            return False
+        return True
 
     def scale(self, reason, to_index=None):
         if not self.vars['enabled']:
-            return self.abort("Resizing disabled")
-        if 0 <= to_index < len(self.vars['instance_sizes']):
-            if self.in_scheduled_up and to_index < self.vars['scheduled_index']:
-                return self.abort("Already at bottom for size during scheduled scale up")
-            self.info(
-                "Scaling to {}".format(self.vars['instance_sizes'][to_index]))
-            if not self.assert_cooldown_expired(reason):
-                return self.abort("{} Cooldown threshold not reached".format(reason))
-            if self.execute:
-                self.info("Executing scale command")
-            else:
-                self.info("Skipping scale command per passed in param")
-            return self.success(self.vars['instance_sizes'][to_index])
+            return self.abort("Launch Config Modification disabled")
+        if not self.assert_cooldown_expired(reason):
+            return self.abort("{} Cooldown threshold not reached".format(reason))
+        new_class = self.vars[str(reason[3:]+"_instance")]
+        self.info("Modifying Launch Config to {}".format(new_class))
+        if self.execute:
+            self.info("Executing scale command")
         else:
-            return self.abort("Unable to scale - invalid to_index: {}".format(to_index))
+            self.info("Skipping scale command per passed in param")
+        if reason == 'to_standard':
+            if not self.add_action_tag():
+                return self.abort("Action tag write error!")
+        return self.success(self.vars['instance_sizes'][to_index])
 
     def lambda_apply_action(self):
-        if self.result['Action'] == 'RESIZE':
+        if self.result['Action'] == 'MODIFY':
             amz_res = self.autoscaling_client.modify_db_instance(
                 DBInstanceIdentifier=self.vars['rds_identifier'],
                 DBInstanceClass=self.result['Message'],

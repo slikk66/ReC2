@@ -1,16 +1,19 @@
 ---
 stack_prefix: rec2
 region: us-west-2
-credit_instance_size: t2.medium
+credit_instance_size: t2.micro
 standard_instance_size: c4.large
 scale_down:
   alarm_duration: 30
   threshold: 20
-  cooldown: 180
 credits:
-  alarum_duration: 10
-  threshold: 10
-  group_percent: 25
+  alarm_duration: 4
+  threshold: 50
+drag:
+  alarm_duration: 2
+  threshold: 3
+cooldown: 180
 enabled: True
-asg_identifier: MixHopASG
+drag_enabled: True
+asg_identifier: WebAppASG
 ...
