@@ -8,13 +8,14 @@ from dateutil import parser
 class rec2:
 
     def lambda_startup(self):
-        self.autoscaling_client = boto3.client('autoscaling')
-        self.cloudwatch_client = boto3.client('cloudwatch')
+        self.set_vars(
+            yaml.load(file('vars.yaml')), yaml.load(file('alarms.yaml')))
+
+        self.autoscaling_client = boto3.client('autoscaling',region_name=self.vars['region'])
+        self.cloudwatch_client = boto3.client('cloudwatch',region_name=self.vars['region'])
 
         self.now = datetime.datetime.utcnow()
 
-        self.set_vars(
-            yaml.load(file('vars.yaml')), yaml.load(file('alarms.yaml')))
 
         self.process(
 
@@ -163,14 +164,14 @@ class rec2:
 
     def create_launch_configuration(self):
         worked = False
-        to_copy = self.config
+        to_copy = self.config.copy()
         del(to_copy['CreatedTime'])
         del(to_copy['LaunchConfigurationARN'])
         to_copy['InstanceType'] = self.new_class
         new_name = to_copy['LaunchConfigurationName']+"-ReC2-AutoCopy"
         to_copy['LaunchConfigurationName'] = new_name
         try:
-            self.asg_client.create_launch_configuration(**to_copy)
+            self.autoscaling_client.create_launch_configuration(**to_copy)
             self.pending_launch_configuration = new_name
         except:
             self.info("Launch Config creation failed!")
@@ -178,13 +179,17 @@ class rec2:
         return worked
 
     def launch_config_acquired(self):
-        config_copy = self.config
+        config_copy = self.config.copy()
         del(config_copy['CreatedTime'])
         del(config_copy['LaunchConfigurationARN'])
         del(config_copy['LaunchConfigurationName'])
         config_copy['InstanceType'] = self.new_class
         for launch_config in self.launch_configurations:
-            test_config = launch_config
+            if cmp(self.config,launch_config) == 0:
+                continue
+            test_config = launch_config.copy()
+            print "test config:"
+            print test_config
             del(test_config['CreatedTime'])
             del(test_config['LaunchConfigurationARN'])
             del(test_config['LaunchConfigurationName'])
@@ -198,12 +203,13 @@ class rec2:
     def add_action_tag(self):
         worked = False
         try:
-            self.asg_client.create_or_update_tags(
+            self.autoscaling_client.create_or_update_tags(
                 Tags=[{
                     "ResourceId": self.vars['asg_identifier'],
                     "ResourceType": "auto-scaling-group",
                     "Key": "rec2-modify-to-standard",
-                    "Value": datetime.datetime.utcnow().strftime("%a %b %d %H:%M:%S UTC %Y")
+                    "Value": datetime.datetime.utcnow().strftime("%a %b %d %H:%M:%S UTC %Y"),
+                    "PropagateAtLaunch": False
                 }])
             worked = True
         except:
@@ -212,7 +218,7 @@ class rec2:
         return worked
 
     def apply_launch_config(self):
-        amz_res = self.asg_client.update_auto_scaling_group(
+        amz_res = self.autoscaling_client.update_auto_scaling_group(
             AutoScalingGroupName=self.vars['asg_identifier'],
             LaunchConfigurationName=self.pending_launch_configuration
             )
