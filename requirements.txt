@@ -6,3 +6,5 @@ pyyaml
 pytest
 boto3
 pytest-cov
+pytz
+python-dateutil

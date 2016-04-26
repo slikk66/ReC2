@@ -1,6 +1,8 @@
 import boto3
 import yaml
 import datetime
+import pytz
+from dateutil import parser
 
 
 class rec2:
@@ -50,9 +52,9 @@ class rec2:
     def info(self, msg):
         self.result['Logs'].append("{}: {}".format("INFO", msg))
 
-    def success(self, msg):
+    def success(self):
         self.result['Action'] = 'MODIFY'
-        self.result['Message'] = msg
+        self.result['Message'] = self.reason
         self.result['Logs'].append(
             "{}: {}".format(self.result['Action'], self.result['Message']))
         return self.result
@@ -102,13 +104,13 @@ class rec2:
         self.info("Checking low credit alarm status")
         if self.alarm_status['MetricAlarms'][1]['StateValue'] == 'ALARM':
             self.info("Low Credit Alarm in ALARM!")
-            self.scale('to_standard', self.vars['standard_instance_size'])
+            return self.scale('to_standard', self.vars['standard_instance_size'])
 
         if self.vars['drag_enabled']:
             self.info("Checking drag alarm status")
             if self.alarm_status['MetricAlarms'][2]['StateValue'] == 'ALARM':
                 self.info("Credit Drag Alarm in ALARM!")
-                self.scale('to_standard', self.vars['standard_instance_size'])
+                return self.scale('to_standard', self.vars['standard_instance_size'])
         else:
             self.info("Skipping drag alarm check: disabled")
         return self.abort("Nothing to do")
@@ -117,46 +119,113 @@ class rec2:
         self.info("Checking low cpu alarm status")
         if self.alarm_status['MetricAlarms'][0]['StateValue'] == 'ALARM':
             self.info("Low CPU Alarm in ALARM!")
-            self.scale('to_credit', self.vars['credit_instance_size'])
+            return self.scale('to_credit', self.vars['credit_instance_size'])
         return self.abort("Nothing to do")
 
-    def assert_cooldown_expired(self, reason):
+    def assert_cooldown_expired(self):
         last_rec2_change = False
-        if reason == 'to_standard':
+        if self.reason == 'to_standard':
             return True
-        self.info("Checking for last to_standard event")
+        self.info("Checking for last to_standard modification event")
         for tag in self.asg_details['Tags']:
             if tag['Key'] == 'rec2-modify-to-standard':
-                last_rec2_change = tag['Value']
+                try:
+                    last_rec2_change = parser.parse(tag['Value'])
+                except:
+                    self.info("Unable to parse value from tag! {}".format(tag['Value']))
+                    pass
                 break
         if last_rec2_change:
-            # compare, if too soon return false
-            return False
+            delta_time = self.now.replace(tzinfo=pytz.utc) - last_rec2_change
+            delta_time_calculated = divmod(
+                delta_time.days * 86400 + delta_time.seconds, 60)
+            self.info("Last finished modification {} Diff: (Min, Sec): {}".format(
+                last_rec2_change, delta_time_calculated))
+            if delta_time_calculated[0] < self.vars['cooldown']:
+                self.info("Not enough time has passed since last modification ({})".format(
+                    self.vars['cooldown']))
+                return False
         return True
 
     def scale(self, reason, to_index=None):
+        self.reason = reason
         if not self.vars['enabled']:
             return self.abort("Launch Config Modification disabled")
-        if not self.assert_cooldown_expired(reason):
-            return self.abort("{} Cooldown threshold not reached".format(reason))
-        new_class = self.vars[str(reason[3:]+"_instance")]
-        self.info("Modifying Launch Config to {}".format(new_class))
+        if not self.assert_cooldown_expired():
+            return self.abort("{} Cooldown threshold not reached".format(self.reason))
+        self.new_class = self.vars[str(self.reason[3:]+"_instance_size")]
+        self.info("Modifying Launch Config to {}".format(self.new_class))
         if self.execute:
             self.info("Executing scale command")
         else:
             self.info("Skipping scale command per passed in param")
-        if reason == 'to_standard':
-            if not self.add_action_tag():
-                return self.abort("Action tag write error!")
-        return self.success(self.vars['instance_sizes'][to_index])
+        return self.success()
+
+    def create_launch_configuration(self):
+        worked = False
+        to_copy = self.config
+        del(to_copy['CreatedTime'])
+        del(to_copy['LaunchConfigurationARN'])
+        to_copy['InstanceType'] = self.new_class
+        new_name = to_copy['LaunchConfigurationName']+"-ReC2-AutoCopy"
+        to_copy['LaunchConfigurationName'] = new_name
+        try:
+            self.asg_client.create_launch_configuration(**to_copy)
+            self.pending_launch_configuration = new_name
+        except:
+            self.info("Launch Config creation failed!")
+            pass
+        return worked
+
+    def launch_config_acquired(self):
+        config_copy = self.config
+        del(config_copy['CreatedTime'])
+        del(config_copy['LaunchConfigurationARN'])
+        del(config_copy['LaunchConfigurationName'])
+        config_copy['InstanceType'] = self.new_class
+        for launch_config in self.launch_configurations:
+            test_config = launch_config
+            del(test_config['CreatedTime'])
+            del(test_config['LaunchConfigurationARN'])
+            del(test_config['LaunchConfigurationName'])
+            if cmp(config_copy,launch_config) == 0:
+                self.pending_launch_configuration = launch_config['LaunchConfigurationName']
+                return True
+        if self.create_launch_configuration():
+            return True
+        return False
+
+    def add_action_tag(self):
+        worked = False
+        try:
+            self.asg_client.create_or_update_tags(
+                Tags=[{
+                    "ResourceId": self.vars['asg_identifier'],
+                    "ResourceType": "auto-scaling-group",
+                    "Key": "rec2-modify-to-standard",
+                    "Value": datetime.datetime.utcnow().strftime("%a %b %d %H:%M:%S UTC %Y")
+                }])
+            worked = True
+        except:
+            self.info("Unable to add action tag")
+            pass
+        return worked
+
+    def apply_launch_config(self):
+        amz_res = self.asg_client.update_auto_scaling_group(
+            AutoScalingGroupName=self.vars['asg_identifier'],
+            LaunchConfigurationName=self.pending_launch_configuration
+            )
+        self.info("AMZ response {}".format(amz_res))
 
     def lambda_apply_action(self):
         if self.result['Action'] == 'MODIFY':
-            amz_res = self.autoscaling_client.modify_db_instance(
-                DBInstanceIdentifier=self.vars['rds_identifier'],
-                DBInstanceClass=self.result['Message'],
-                ApplyImmediately=True)
-            self.info("AMZ response {}".format(amz_res))
+            if self.reason == 'to_standard':
+                if not self.add_action_tag():
+                    return self.abort("Action tag write error!")
+            if self.launch_config_acquired():
+                self.apply_launch_config()
+            return self.abort("System Error!")
 
     def print_logs(self):
         for log in self.result['Logs']:
@@ -168,5 +237,3 @@ def lambda_handler(context, event):
     r2.lambda_startup()
     r2.lambda_apply_action()
     r2.print_logs()
-
-lambda_handler({},{})

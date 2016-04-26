@@ -1,4 +1,4 @@
 ---
-alarm_low: low
-alarm_credits: credits
-alarm_drag: credits
+alarm_low: rec2-alarms-ReC2LowCpu-12TPVDFDRUVG6
+alarm_credits: rec2-alarms-ReC2NoCredits-1M86BTIG6NISK
+alarm_drag: rec2-alarms-ReC2DragCredits-VNVLIHAPGZNK

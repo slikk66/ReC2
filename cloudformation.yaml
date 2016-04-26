@@ -94,7 +94,6 @@
         template_parameters:
             TimeToken: "{{ time_token }}"
             BucketName: "{{ s3['stack_outputs']['BucketName'] }}"
-            AsgIdentifier: "{{ asg_identifier }}"
             LambdaRole: "{{ iam['stack_outputs']['LambdaRole'] }}"
     register: lambda
 
