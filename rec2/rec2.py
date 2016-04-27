@@ -12,8 +12,10 @@ class rec2:
         self.set_vars(
             yaml.load(file('vars.yaml')), yaml.load(file('alarms.yaml')))
 
-        self.autoscaling_client = boto3.client('autoscaling',region_name=self.vars['region'])
-        self.cloudwatch_client = boto3.client('cloudwatch',region_name=self.vars['region'])
+        self.autoscaling_client = boto3.client(
+            'autoscaling', region_name=self.vars['region'])
+        self.cloudwatch_client = boto3.client(
+            'cloudwatch', region_name=self.vars['region'])
 
         self.now = datetime.datetime.utcnow()
 
@@ -30,13 +32,15 @@ class rec2:
                     self.alarms['alarm_drag'],
                 ]),
 
-            self.autoscaling_client.describe_launch_configurations()['LaunchConfigurations']
+            self.autoscaling_client.describe_launch_configurations(
+            )['LaunchConfigurations']
         )
 
     def testing_startup(self, _vars, _alarms, _asg_details, _alarm_status, _launch_configurations):
         self.now = datetime.datetime.utcnow()
         self.set_vars(_vars, _alarms)
-        self.process(_asg_details, _alarm_status, _launch_configurations, False)
+        self.process(
+            _asg_details, _alarm_status, _launch_configurations, False)
         self.print_logs()
 
     def set_vars(self, _vars, _alarms):
@@ -61,7 +65,8 @@ class rec2:
         return self.result
 
     def process(self, _asg_details, _alarm_status, _launch_configurations, _execute=True):
-        self.utc_launch_time = datetime.datetime.utcnow().strftime("%a %b %d %H:%M:%S UTC %Y")
+        self.utc_launch_time = datetime.datetime.utcnow().strftime(
+            "%a %b %d %H:%M:%S UTC %Y")
         self.config = False
         self.alarm_status = {
             "ReC2LowCpu": None,
@@ -88,22 +93,24 @@ class rec2:
 
         self.info("Startup Time: {}".format(self.now.utcnow()))
         self.info("Configured instance sizes: Credit: {}, Standard: {}".format(
-            self.vars['credit_instance_size'],self.vars['standard_instance_size']))
+            self.vars['credit_instance_size'], self.vars['standard_instance_size']))
 
         self.info("Querying ASG: {}".format(self.vars['asg_identifier']))
 
         for config in self.launch_configurations:
             if config['LaunchConfigurationName'] == self.asg_details['LaunchConfigurationName']:
-                self.info("Found active Launch Config: {}".format(self.asg_details['LaunchConfigurationName']))
-                self.info("Config Instance Type: {}".format(config['InstanceType']))
+                self.info("Found active Launch Config: {}".format(
+                    self.asg_details['LaunchConfigurationName']))
+                self.info(
+                    "Config Instance Type: {}".format(config['InstanceType']))
                 self.config = config
                 break
 
         if not self.config:
             return self.abort('Config not found!')
 
-        if config['InstanceType'] not in [self.vars['credit_instance_size'],self.vars['standard_instance_size']]:
-            return self.abort("Current instance type not in allowed sizes! Current: {}, Credit: {}, Standard: {}".format(config['InstanceType'],self.vars['credit_instance_size'],self.vars['standard_instance_size']))
+        if config['InstanceType'] not in [self.vars['credit_instance_size'], self.vars['standard_instance_size']]:
+            return self.abort("Current instance type not in allowed sizes! Current: {}, Credit: {}, Standard: {}".format(config['InstanceType'], self.vars['credit_instance_size'], self.vars['standard_instance_size']))
 
         if config['InstanceType'] == self.vars['credit_instance_size']:
             self.info("Checking if need to INCREASE")
@@ -113,13 +120,15 @@ class rec2:
             return self.check_decrease()
 
     def check_increase(self):
-        self.info("Checking low credit alarm status {}/{}".format(self.alarms['alarm_credit'], self.alarm_status['ReC2NoCredits']))
+        self.info("Checking low credit alarm status {}/{}".format(
+            self.alarms['alarm_credit'], self.alarm_status['ReC2NoCredits']))
         if self.alarm_status['ReC2NoCredits'] == 'ALARM':
             self.info("Low Credit Alarm in ALARM!")
             return self.scale('to_standard', self.vars['standard_instance_size'])
 
         if self.vars['drag_enabled']:
-            self.info("Checking drag alarm status {}/{}".format(self.alarms['alarm_drag'], self.alarm_status['ReC2DragCredits']))
+            self.info("Checking drag alarm status {}/{}".format(
+                self.alarms['alarm_drag'], self.alarm_status['ReC2DragCredits']))
             if self.alarm_status['ReC2DragCredits'] == 'ALARM':
                 self.info("Credit Drag Alarm in ALARM!")
                 return self.scale('to_standard', self.vars['standard_instance_size'])
@@ -128,7 +137,8 @@ class rec2:
         return self.abort("Nothing to do")
 
     def check_decrease(self):
-        self.info("Checking low cpu alarm status {}/{}".format(self.alarms['alarm_low'], self.alarm_status['ReC2LowCpu']))
+        self.info("Checking low cpu alarm status {}/{}".format(
+            self.alarms['alarm_low'], self.alarm_status['ReC2LowCpu']))
         if self.alarm_status['ReC2LowCpu'] == 'ALARM':
             self.info("Low CPU Alarm in ALARM!")
             return self.scale('to_credit', self.vars['credit_instance_size'])
@@ -144,7 +154,8 @@ class rec2:
                 try:
                     last_rec2_change = parser.parse(tag['Value'])
                 except:
-                    self.info("Unable to parse value from tag! {}".format(tag['Value']))
+                    self.info(
+                        "Unable to parse value from tag! {}".format(tag['Value']))
                     pass
                 break
         if last_rec2_change:
@@ -180,8 +191,10 @@ class rec2:
         del(to_copy['LaunchConfigurationARN'])
         to_copy['InstanceType'] = self.new_class
         if "-ReC2-" in to_copy['LaunchConfigurationName']:
-            to_copy['LaunchConfigurationName'] = to_copy['LaunchConfigurationName'][0:to_copy['LaunchConfigurationName'].index("-ReC2-")]
-        self.pending_launch_configuration = to_copy['LaunchConfigurationName']+"-ReC2-"+self.utc_launch_time.replace(" ","-").replace(":","")
+            to_copy['LaunchConfigurationName'] = to_copy['LaunchConfigurationName'][
+                0:to_copy['LaunchConfigurationName'].index("-ReC2-")]
+        self.pending_launch_configuration = to_copy[
+            'LaunchConfigurationName']+"-ReC2-"+self.utc_launch_time.replace(" ", "-").replace(":", "")
         to_copy['LaunchConfigurationName'] = self.pending_launch_configuration
         for i in ['KeyName', 'KernelId', 'RamdiskId']:
             if to_copy[i] == '':
@@ -214,14 +227,15 @@ class rec2:
 
     def apply_launch_config(self):
         if self.asg_details['DesiredCapacity'] + self.asg_details['MinSize'] <= self.asg_details['MaxSize']:
-            desired_capacity = self.asg_details['DesiredCapacity'] + self.asg_details['MinSize']
+            desired_capacity = self.asg_details[
+                'DesiredCapacity'] + self.asg_details['MinSize']
         else:
             desired_capacity = self.asg_details['MaxSize']-1
         amz_res = self.autoscaling_client.update_auto_scaling_group(
             AutoScalingGroupName=self.vars['asg_identifier'],
             LaunchConfigurationName=self.pending_launch_configuration,
             DesiredCapacity=desired_capacity
-            )
+        )
         self.info("AMZ response {}".format(amz_res))
 
     def lambda_apply_action(self):
