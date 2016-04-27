@@ -78,7 +78,7 @@ low_cpu_alarm = t.add_resource(
 
 low_credit_alarm = t.add_resource(
     Alarm(
-        "ReC2NoCredits",
+        "ReC2LowCredits",
         AlarmDescription="CPU Credits Exhausted Average Alarm",
         Namespace="AWS/EC2",
         MetricName="CPUCreditBalance",
@@ -129,7 +129,7 @@ t.add_output([
         Value=Ref(drag_credit_alarm)
     ),
     Output(
-        'DownAlarm',
+        'CpuLowAlarm',
         Description='Alarm name for down/low',
         Value=Ref(low_cpu_alarm)
     ),

@@ -27,7 +27,7 @@ class rec2:
 
             self.cloudwatch_client.describe_alarms(
                 AlarmNames=[
-                    self.alarms['alarm_low'],
+                    self.alarms['alarm_low_cpu'],
                     self.alarms['alarm_credits'],
                     self.alarms['alarm_drag'],
                 ]),
@@ -70,7 +70,7 @@ class rec2:
         self.config = False
         self.alarm_status = {
             "ReC2LowCpu": None,
-            "ReC2NoCredits": None,
+            "ReC2LowCredits": None,
             "ReC2DragCredits": None,
         }
         self.result = {
@@ -82,8 +82,8 @@ class rec2:
         for status in _alarm_status['MetricAlarms']:
             if 'ReC2LowCpu' in status['AlarmName']:
                 self.alarm_status['ReC2LowCpu'] = status['StateValue']
-            elif 'ReC2NoCredits' in status['AlarmName']:
-                self.alarm_status['ReC2NoCredits'] = status['StateValue']
+            elif 'ReC2LowCredits' in status['AlarmName']:
+                self.alarm_status['ReC2LowCredits'] = status['StateValue']
             elif 'ReC2DragCredits' in status['AlarmName']:
                 self.alarm_status['ReC2DragCredits'] = status['StateValue']
 
@@ -121,8 +121,8 @@ class rec2:
 
     def check_increase(self):
         self.info("Checking low credit alarm status {}/{}".format(
-            self.alarms['alarm_credit'], self.alarm_status['ReC2NoCredits']))
-        if self.alarm_status['ReC2NoCredits'] == 'ALARM':
+            self.alarms['alarm_credits'], self.alarm_status['ReC2LowCredits']))
+        if self.alarm_status['ReC2LowCredits'] == 'ALARM':
             self.info("Low Credit Alarm in ALARM!")
             return self.scale('to_standard', self.vars['standard_instance_size'])
 
@@ -138,7 +138,7 @@ class rec2:
 
     def check_decrease(self):
         self.info("Checking low cpu alarm status {}/{}".format(
-            self.alarms['alarm_low'], self.alarm_status['ReC2LowCpu']))
+            self.alarms['alarm_low_cpu'], self.alarm_status['ReC2LowCpu']))
         if self.alarm_status['ReC2LowCpu'] == 'ALARM':
             self.info("Low CPU Alarm in ALARM!")
             return self.scale('to_credit', self.vars['credit_instance_size'])
@@ -194,12 +194,11 @@ class rec2:
             to_copy['LaunchConfigurationName'] = to_copy['LaunchConfigurationName'][
                 0:to_copy['LaunchConfigurationName'].index("-ReC2-")]
         self.pending_launch_configuration = to_copy[
-            'LaunchConfigurationName']+"-ReC2-"+self.utc_launch_time.replace(" ", "-").replace(":", "")
+            'LaunchConfigurationName']+"-ReC2-"+self.utc_launch_time.replace(" ", "-").replace(":", ".")
         to_copy['LaunchConfigurationName'] = self.pending_launch_configuration
         for i in ['KeyName', 'KernelId', 'RamdiskId']:
             if to_copy[i] == '':
                 del(to_copy[i])
-        to_copy['UserData'] = base64.b64decode(to_copy['UserData'])
         try:
             self.autoscaling_client.create_launch_configuration(**to_copy)
             worked = True
@@ -226,16 +225,16 @@ class rec2:
         return worked
 
     def apply_launch_config(self):
-        if self.asg_details['DesiredCapacity'] + self.asg_details['MinSize'] <= self.asg_details['MaxSize']:
-            desired_capacity = self.asg_details[
-                'DesiredCapacity'] + self.asg_details['MinSize']
-        else:
-            desired_capacity = self.asg_details['MaxSize']-1
-        amz_res = self.autoscaling_client.update_auto_scaling_group(
-            AutoScalingGroupName=self.vars['asg_identifier'],
-            LaunchConfigurationName=self.pending_launch_configuration,
-            DesiredCapacity=desired_capacity
-        )
+        desired_capacity = self.asg_details[
+                'DesiredCapacity'] + 2
+        asg_dict = {
+            'AutoScalingGroupName': self.vars['asg_identifier'],
+            'LaunchConfigurationName': self.pending_launch_configuration,
+            'DesiredCapacity': desired_capacity
+        }
+        if desired_capacity > self.asg_details['MaxSize']:
+            asg_dict['MaxSize'] = desired_capacity
+        amz_res = self.autoscaling_client.update_auto_scaling_group(**asg_dict)
         self.info("AMZ response {}".format(amz_res))
 
     def lambda_apply_action(self):
