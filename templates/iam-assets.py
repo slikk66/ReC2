@@ -47,6 +47,15 @@ role = t.add_resource(iam.Role(
                 Statement(
                     Effect=Allow,
                     Action=[
+                        Action('iam', 'PassRole'),
+                    ],
+                    Resource=[
+                        "*"
+                    ]
+                ),
+                Statement(
+                    Effect=Allow,
+                    Action=[
                         Action('logs', 'CreateLogGroup'),
                         Action('logs', 'CreateLogStream'),
                         Action('logs', 'PutLogEvents'),

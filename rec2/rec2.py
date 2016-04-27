@@ -2,6 +2,7 @@ import boto3
 import yaml
 import datetime
 import pytz
+import base64
 from dateutil import parser
 
 
@@ -15,7 +16,6 @@ class rec2:
         self.cloudwatch_client = boto3.client('cloudwatch',region_name=self.vars['region'])
 
         self.now = datetime.datetime.utcnow()
-
 
         self.process(
 
@@ -61,16 +61,28 @@ class rec2:
         return self.result
 
     def process(self, _asg_details, _alarm_status, _launch_configurations, _execute=True):
+        self.utc_launch_time = datetime.datetime.utcnow().strftime("%a %b %d %H:%M:%S UTC %Y")
         self.config = False
-
+        self.alarm_status = {
+            "ReC2LowCpu": None,
+            "ReC2NoCredits": None,
+            "ReC2DragCredits": None,
+        }
         self.result = {
             "Action": None,
             "Message": None,
             "Logs": []
         }
 
+        for status in _alarm_status['MetricAlarms']:
+            if 'ReC2LowCpu' in status['AlarmName']:
+                self.alarm_status['ReC2LowCpu'] = status['StateValue']
+            elif 'ReC2NoCredits' in status['AlarmName']:
+                self.alarm_status['ReC2NoCredits'] = status['StateValue']
+            elif 'ReC2DragCredits' in status['AlarmName']:
+                self.alarm_status['ReC2DragCredits'] = status['StateValue']
+
         self.asg_details = _asg_details
-        self.alarm_status = _alarm_status
         self.launch_configurations = _launch_configurations
         self.execute = _execute
 
@@ -100,16 +112,15 @@ class rec2:
             self.info("Checking if need to DECREASE")
             return self.check_decrease()
 
-
     def check_increase(self):
-        self.info("Checking low credit alarm status")
-        if self.alarm_status['MetricAlarms'][1]['StateValue'] == 'ALARM':
+        self.info("Checking low credit alarm status {}/{}".format(self.alarms['alarm_credit'], self.alarm_status['ReC2NoCredits']))
+        if self.alarm_status['ReC2NoCredits'] == 'ALARM':
             self.info("Low Credit Alarm in ALARM!")
             return self.scale('to_standard', self.vars['standard_instance_size'])
 
         if self.vars['drag_enabled']:
-            self.info("Checking drag alarm status")
-            if self.alarm_status['MetricAlarms'][2]['StateValue'] == 'ALARM':
+            self.info("Checking drag alarm status {}/{}".format(self.alarms['alarm_drag'], self.alarm_status['ReC2DragCredits']))
+            if self.alarm_status['ReC2DragCredits'] == 'ALARM':
                 self.info("Credit Drag Alarm in ALARM!")
                 return self.scale('to_standard', self.vars['standard_instance_size'])
         else:
@@ -117,8 +128,8 @@ class rec2:
         return self.abort("Nothing to do")
 
     def check_decrease(self):
-        self.info("Checking low cpu alarm status")
-        if self.alarm_status['MetricAlarms'][0]['StateValue'] == 'ALARM':
+        self.info("Checking low cpu alarm status {}/{}".format(self.alarms['alarm_low'], self.alarm_status['ReC2LowCpu']))
+        if self.alarm_status['ReC2LowCpu'] == 'ALARM':
             self.info("Low CPU Alarm in ALARM!")
             return self.scale('to_credit', self.vars['credit_instance_size'])
         return self.abort("Nothing to do")
@@ -168,37 +179,21 @@ class rec2:
         del(to_copy['CreatedTime'])
         del(to_copy['LaunchConfigurationARN'])
         to_copy['InstanceType'] = self.new_class
-        new_name = to_copy['LaunchConfigurationName']+"-ReC2-AutoCopy"
-        to_copy['LaunchConfigurationName'] = new_name
+        if "-ReC2-" in to_copy['LaunchConfigurationName']:
+            to_copy['LaunchConfigurationName'] = to_copy['LaunchConfigurationName'][0:to_copy['LaunchConfigurationName'].index("-ReC2-")]
+        self.pending_launch_configuration = to_copy['LaunchConfigurationName']+"-ReC2-"+self.utc_launch_time.replace(" ","-").replace(":","")
+        to_copy['LaunchConfigurationName'] = self.pending_launch_configuration
+        for i in ['KeyName', 'KernelId', 'RamdiskId']:
+            if to_copy[i] == '':
+                del(to_copy[i])
+        to_copy['UserData'] = base64.b64decode(to_copy['UserData'])
         try:
             self.autoscaling_client.create_launch_configuration(**to_copy)
-            self.pending_launch_configuration = new_name
+            worked = True
         except:
             self.info("Launch Config creation failed!")
             pass
         return worked
-
-    def launch_config_acquired(self):
-        config_copy = self.config.copy()
-        del(config_copy['CreatedTime'])
-        del(config_copy['LaunchConfigurationARN'])
-        del(config_copy['LaunchConfigurationName'])
-        config_copy['InstanceType'] = self.new_class
-        for launch_config in self.launch_configurations:
-            if cmp(self.config,launch_config) == 0:
-                continue
-            test_config = launch_config.copy()
-            print "test config:"
-            print test_config
-            del(test_config['CreatedTime'])
-            del(test_config['LaunchConfigurationARN'])
-            del(test_config['LaunchConfigurationName'])
-            if cmp(config_copy,launch_config) == 0:
-                self.pending_launch_configuration = launch_config['LaunchConfigurationName']
-                return True
-        if self.create_launch_configuration():
-            return True
-        return False
 
     def add_action_tag(self):
         worked = False
@@ -208,7 +203,7 @@ class rec2:
                     "ResourceId": self.vars['asg_identifier'],
                     "ResourceType": "auto-scaling-group",
                     "Key": "rec2-modify-to-standard",
-                    "Value": datetime.datetime.utcnow().strftime("%a %b %d %H:%M:%S UTC %Y"),
+                    "Value": self.utc_launch_time,
                     "PropagateAtLaunch": False
                 }])
             worked = True
@@ -218,9 +213,14 @@ class rec2:
         return worked
 
     def apply_launch_config(self):
+        if self.asg_details['DesiredCapacity'] + self.asg_details['MinSize'] <= self.asg_details['MaxSize']:
+            desired_capacity = self.asg_details['DesiredCapacity'] + self.asg_details['MinSize']
+        else:
+            desired_capacity = self.asg_details['MaxSize']-1
         amz_res = self.autoscaling_client.update_auto_scaling_group(
             AutoScalingGroupName=self.vars['asg_identifier'],
-            LaunchConfigurationName=self.pending_launch_configuration
+            LaunchConfigurationName=self.pending_launch_configuration,
+            DesiredCapacity=desired_capacity
             )
         self.info("AMZ response {}".format(amz_res))
 
@@ -229,8 +229,8 @@ class rec2:
             if self.reason == 'to_standard':
                 if not self.add_action_tag():
                     return self.abort("Action tag write error!")
-            if self.launch_config_acquired():
-                self.apply_launch_config()
+            if self.create_launch_configuration():
+                return self.apply_launch_config()
             return self.abort("System Error!")
 
     def print_logs(self):
