@@ -1,0 +1,5 @@
+---
+alarm_low_cpu: rec2-alarms-ReC2LowCpu
+alarm_credits: rec2-alarms-ReC2LowCredits
+alarm_drag: rec2-alarms-ReC2DragCredits
+...

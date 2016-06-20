@@ -2,7 +2,6 @@ import boto3
 import yaml
 import datetime
 import pytz
-import base64
 from dateutil import parser
 
 
@@ -153,11 +152,11 @@ class rec2:
             if tag['Key'] == 'rec2-modify-to-standard':
                 try:
                     last_rec2_change = parser.parse(tag['Value'])
+                    break
                 except:
                     self.info(
                         "Unable to parse value from tag! {}".format(tag['Value']))
-                    pass
-                break
+                    return False
         if last_rec2_change:
             delta_time = self.now.replace(tzinfo=pytz.utc) - last_rec2_change
             delta_time_calculated = divmod(
@@ -175,7 +174,7 @@ class rec2:
         if not self.vars['enabled']:
             return self.abort("Launch Config Modification disabled")
         if not self.assert_cooldown_expired():
-            return self.abort("{} Cooldown threshold not reached".format(self.reason))
+            return self.abort("Cooldown threshold invalidation")
         self.new_class = self.vars[str(self.reason[3:]+"_instance_size")]
         self.info("Modifying Launch Config to {}".format(self.new_class))
         if self.execute:

@@ -1,0 +1,19 @@
+---
+stack_prefix: rec2
+region: us-west-2
+credit_instance_size: t2.medium
+standard_instance_size: c4.large
+scale_down:
+  alarm_duration: 30
+  threshold: 20
+credits:
+  alarm_duration: 4
+  threshold: 60
+drag:
+  alarm_duration: 2
+  threshold: 5
+cooldown: 180
+enabled: True
+drag_enabled: True
+asg_identifier: WebAppASG
+...
