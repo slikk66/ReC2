@@ -9,23 +9,23 @@ a = rec2.rec2()
 
 # details
 asg_details = {
-            "AutoScalingGroupARN": "arn:aws:autoscaling:us-west-2:761425999210:autoScalingGroup:f604b0bf-e970-45a2-87c0-9cb336dcaeda:autoScalingGroupName/MixHopASG",
+            "AutoScalingGroupARN": "arn:aws:autoscaling:us-west-2:761425999210:autoScalingGroup:f604b0bf-e970-45a2-87c0-9cb336dcaeda:autoScalingGroupName/WebAppASG",
             "HealthCheckGracePeriod": 300,
             "SuspendedProcesses": [],
             "DesiredCapacity": 1,
             "Tags": [
                 {
                     "ResourceType": "auto-scaling-group",
-                    "ResourceId": "MixHopASG",
+                    "ResourceId": "WebAppASG",
                     "PropagateAtLaunch": True,
                     "Value": "Production",
                     "Key": "Environment"
                 },
                 {
                     "ResourceType": "auto-scaling-group",
-                    "ResourceId": "MixHopASG",
+                    "ResourceId": "WebAppASG",
                     "PropagateAtLaunch": True,
-                    "Value": "MixWebASG",
+                    "Value": "WebAppASG",
                     "Key": "Name"
                 }
             ],
@@ -33,7 +33,7 @@ asg_details = {
             "LoadBalancerNames": [
                 "MIXHOP-LB"
             ],
-            "AutoScalingGroupName": "MixHopASG",
+            "AutoScalingGroupName": "WebAppASG",
             "DefaultCooldown": 300,
             "MinSize": 1,
             "Instances": [
@@ -43,7 +43,7 @@ asg_details = {
                     "InstanceId": "i-d031f714",
                     "HealthStatus": "Healthy",
                     "LifecycleState": "InService",
-                    "LaunchConfigurationName": "MixHopWebClusterC"
+                    "LaunchConfigurationName": "WebAppASGLaunchConfigC"
                 }
             ],
             "MaxSize": 4,
@@ -51,7 +51,7 @@ asg_details = {
             "TerminationPolicies": [
                 "Default"
             ],
-            "LaunchConfigurationName": "MixHopWebClusterC",
+            "LaunchConfigurationName": "WebAppASGLaunchConfigC",
             "CreatedTime": "2015-06-03T23:34:14.159Z",
             "AvailabilityZones": [
                 "us-west-2a"
@@ -60,28 +60,28 @@ asg_details = {
             "NewInstancesProtectedFromScaleIn": False
         }
 asg_details_cooldown_invalid = {
-            "AutoScalingGroupARN": "arn:aws:autoscaling:us-west-2:761425999210:autoScalingGroup:f604b0bf-e970-45a2-87c0-9cb336dcaeda:autoScalingGroupName/MixHopASG",
+            "AutoScalingGroupARN": "arn:aws:autoscaling:us-west-2:761425999210:autoScalingGroup:f604b0bf-e970-45a2-87c0-9cb336dcaeda:autoScalingGroupName/WebAppASG",
             "HealthCheckGracePeriod": 300,
             "SuspendedProcesses": [],
             "DesiredCapacity": 1,
             "Tags": [
                 {
                     "ResourceType": "auto-scaling-group",
-                    "ResourceId": "MixHopASG",
+                    "ResourceId": "WebAppASG",
                     "PropagateAtLaunch": True,
                     "Value": "Production",
                     "Key": "Environment"
                 },
                 {
                     "ResourceType": "auto-scaling-group",
-                    "ResourceId": "MixHopASG",
+                    "ResourceId": "WebAppASG",
                     "PropagateAtLaunch": True,
-                    "Value": "MixWebASG",
+                    "Value": "WebAppASG",
                     "Key": "Name"
                 },
                 {
                     "ResourceType": "auto-scaling-group",
-                    "ResourceId": "MixHopASG",
+                    "ResourceId": "WebAppASG",
                     "Key": "rec2-modify-to-standard",
                     "Value": datetime.datetime(2016, 1, 1, 19, 0, 0, 0, tzinfo=pytz.utc),
                     "PropagateAtLaunch": False
@@ -91,7 +91,7 @@ asg_details_cooldown_invalid = {
             "LoadBalancerNames": [
                 "MIXHOP-LB"
             ],
-            "AutoScalingGroupName": "MixHopASG",
+            "AutoScalingGroupName": "WebAppASG",
             "DefaultCooldown": 300,
             "MinSize": 1,
             "Instances": [
@@ -101,7 +101,7 @@ asg_details_cooldown_invalid = {
                     "InstanceId": "i-d031f714",
                     "HealthStatus": "Healthy",
                     "LifecycleState": "InService",
-                    "LaunchConfigurationName": "MixHopWebClusterC"
+                    "LaunchConfigurationName": "WebAppASGLaunchConfigC"
                 }
             ],
             "MaxSize": 4,
@@ -109,7 +109,65 @@ asg_details_cooldown_invalid = {
             "TerminationPolicies": [
                 "Default"
             ],
-            "LaunchConfigurationName": "MixHopWebClusterC",
+            "LaunchConfigurationName": "WebAppASGLaunchConfigC",
+            "CreatedTime": "2015-06-03T23:34:14.159Z",
+            "AvailabilityZones": [
+                "us-west-2a"
+            ],
+            "HealthCheckType": "EC2",
+            "NewInstancesProtectedFromScaleIn": False
+        }
+asg_details_cooldown_not_met = {
+            "AutoScalingGroupARN": "arn:aws:autoscaling:us-west-2:761425999210:autoScalingGroup:f604b0bf-e970-45a2-87c0-9cb336dcaeda:autoScalingGroupName/WebAppASG",
+            "HealthCheckGracePeriod": 300,
+            "SuspendedProcesses": [],
+            "DesiredCapacity": 1,
+            "Tags": [
+                {
+                    "ResourceType": "auto-scaling-group",
+                    "ResourceId": "WebAppASG",
+                    "PropagateAtLaunch": True,
+                    "Value": "Production",
+                    "Key": "Environment"
+                },
+                {
+                    "ResourceType": "auto-scaling-group",
+                    "ResourceId": "WebAppASG",
+                    "PropagateAtLaunch": True,
+                    "Value": "WebAppASG",
+                    "Key": "Name"
+                },
+                {
+                    "ResourceType": "auto-scaling-group",
+                    "ResourceId": "WebAppASG",
+                    "Key": "rec2-modify-to-standard",
+                    "Value": "Fri Jan 01 19:15:00 UTC 2016",
+                    "PropagateAtLaunch": False
+                }
+            ],
+            "EnabledMetrics": [],
+            "LoadBalancerNames": [
+                "MIXHOP-LB"
+            ],
+            "AutoScalingGroupName": "WebAppASG",
+            "DefaultCooldown": 300,
+            "MinSize": 1,
+            "Instances": [
+                {
+                    "ProtectedFromScaleIn": False,
+                    "AvailabilityZone": "us-west-2a",
+                    "InstanceId": "i-d031f714",
+                    "HealthStatus": "Healthy",
+                    "LifecycleState": "InService",
+                    "LaunchConfigurationName": "WebAppASGLaunchConfigC"
+                }
+            ],
+            "MaxSize": 4,
+            "VPCZoneIdentifier": "subnet-03b96f66",
+            "TerminationPolicies": [
+                "Default"
+            ],
+            "LaunchConfigurationName": "WebAppASGLaunchConfigC",
             "CreatedTime": "2015-06-03T23:34:14.159Z",
             "AvailabilityZones": [
                 "us-west-2a"
@@ -118,13 +176,14 @@ asg_details_cooldown_invalid = {
             "NewInstancesProtectedFromScaleIn": False
         }
 
+
 # launch_configurations
 launch_configs_credit = [
         {
             "UserData": "",
             "IamInstanceProfile": "MixhopWorker",
             "EbsOptimized": False,
-            "LaunchConfigurationARN": "arn:aws:autoscaling:us-west-2:761425999210:launchConfiguration:d9521163-b772-4922-8c62-a814cc4aedf3:launchConfigurationName/MixHopWebClusterC",
+            "LaunchConfigurationARN": "arn:aws:autoscaling:us-west-2:761425999210:launchConfiguration:d9521163-b772-4922-8c62-a814cc4aedf3:launchConfigurationName/WebAppASGLaunchConfigC",
             "InstanceMonitoring": {
                 "Enabled": False
             },
@@ -146,7 +205,7 @@ launch_configs_credit = [
                 "sg-9ae262ff",
                 "sg-afe262ca"
             ],
-            "LaunchConfigurationName": "MixHopWebClusterC",
+            "LaunchConfigurationName": "WebAppASGLaunchConfigC",
             "KernelId": "",
             "RamdiskId": "",
             "ImageId": "ami-8ce302bf",
@@ -159,7 +218,7 @@ launch_configs_standard = [
             "UserData": "",
             "IamInstanceProfile": "MixhopWorker",
             "EbsOptimized": False,
-            "LaunchConfigurationARN": "arn:aws:autoscaling:us-west-2:761425999210:launchConfiguration:d9521163-b772-4922-8c62-a814cc4aedf3:launchConfigurationName/MixHopWebClusterC",
+            "LaunchConfigurationARN": "arn:aws:autoscaling:us-west-2:761425999210:launchConfiguration:d9521163-b772-4922-8c62-a814cc4aedf3:launchConfigurationName/WebAppASGLaunchConfigC",
             "InstanceMonitoring": {
                 "Enabled": False
             },
@@ -181,7 +240,7 @@ launch_configs_standard = [
                 "sg-9ae262ff",
                 "sg-afe262ca"
             ],
-            "LaunchConfigurationName": "MixHopWebClusterC",
+            "LaunchConfigurationName": "WebAppASGLaunchConfigC",
             "KernelId": "",
             "RamdiskId": "",
             "ImageId": "ami-8ce302bf",
@@ -375,3 +434,12 @@ def test_decrease_cooldown_invalid():
                       asg_details_cooldown_invalid, low_asg_cpu, launch_configs_standard)
     assert(a.result['Action'] == 'NO_ACTION')
     assert(a.result['Message'] == 'Cooldown threshold invalidation')
+
+@freeze_time("2016-01-01 19:30:00", tz_offset=0)
+def test_decrease_cooldown_not_met():
+    test_yaml = get_vars()
+    a.testing_startup(test_yaml[0], test_yaml[1],
+                      asg_details_cooldown_not_met, low_asg_cpu, launch_configs_standard)
+    assert(a.result['Action'] == 'NO_ACTION')
+    assert(a.result['Message'] == 'Cooldown threshold invalidation')
+
