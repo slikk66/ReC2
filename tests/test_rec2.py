@@ -175,7 +175,57 @@ asg_details_cooldown_not_met = {
             "HealthCheckType": "EC2",
             "NewInstancesProtectedFromScaleIn": False
         }
-
+asg_details_at_capacity = {
+            "AutoScalingGroupARN": "arn:aws:autoscaling:us-west-2:761425999210:autoScalingGroup:f604b0bf-e970-45a2-87c0-9cb336dcaeda:autoScalingGroupName/WebAppASG",
+            "HealthCheckGracePeriod": 300,
+            "SuspendedProcesses": [],
+            "DesiredCapacity": 1,
+            "Tags": [
+                {
+                    "ResourceType": "auto-scaling-group",
+                    "ResourceId": "WebAppASG",
+                    "PropagateAtLaunch": True,
+                    "Value": "Production",
+                    "Key": "Environment"
+                },
+                {
+                    "ResourceType": "auto-scaling-group",
+                    "ResourceId": "WebAppASG",
+                    "PropagateAtLaunch": True,
+                    "Value": "WebAppASG",
+                    "Key": "Name"
+                }
+            ],
+            "EnabledMetrics": [],
+            "LoadBalancerNames": [
+                "MIXHOP-LB"
+            ],
+            "AutoScalingGroupName": "WebAppASG",
+            "DefaultCooldown": 300,
+            "MinSize": 1,
+            "Instances": [
+                {
+                    "ProtectedFromScaleIn": False,
+                    "AvailabilityZone": "us-west-2a",
+                    "InstanceId": "i-d031f714",
+                    "HealthStatus": "Healthy",
+                    "LifecycleState": "InService",
+                    "LaunchConfigurationName": "WebAppASGLaunchConfigC"
+                }
+            ],
+            "MaxSize": 1,
+            "VPCZoneIdentifier": "subnet-03b96f66",
+            "TerminationPolicies": [
+                "Default"
+            ],
+            "LaunchConfigurationName": "WebAppASGLaunchConfigC",
+            "CreatedTime": "2015-06-03T23:34:14.159Z",
+            "AvailabilityZones": [
+                "us-west-2a"
+            ],
+            "HealthCheckType": "EC2",
+            "NewInstancesProtectedFromScaleIn": False
+        }
 
 # launch_configurations
 launch_configs_credit = [
@@ -312,43 +362,6 @@ drag_alarm = {
     }]
 }
 
-# events
-friday_midday_update = {
-    "Events": [{
-        "Date": datetime.datetime(2016, 1, 1, 18, 0, 0, 0, tzinfo=pytz.utc),
-        "Message": "Applying modification to database instance class",
-        "SourceIdentifier": "mixhop-rds-master",
-        "EventCategories": ["configuration change"],
-        "SourceType": "db-instance"
-    },
-        {
-        "Date": datetime.datetime(2016, 1, 1, 18, 30, 0, 0, tzinfo=pytz.utc),
-        "Message": "Finished applying modification to DB instance class",
-        "SourceIdentifier": "mixhop-rds-master",
-        "EventCategories": ["configuration change"],
-        "SourceType": "db-instance"
-    }]
-}
-saturday_midday_update = {
-    "Events": [{
-        "Date": datetime.datetime(2016, 1, 2, 18, 0, 0, 0, tzinfo=pytz.utc),
-        "Message": "Applying modification to database instance class",
-        "SourceIdentifier": "mixhop-rds-master",
-        "EventCategories": ["configuration change"],
-        "SourceType": "db-instance"
-    },
-        {
-        "Date": datetime.datetime(2016, 1, 2, 18, 30, 0, 0, tzinfo=pytz.utc),
-        "Message": "Finished applying modification to DB instance class",
-        "SourceIdentifier": "mixhop-rds-master",
-        "EventCategories": ["configuration change"],
-        "SourceType": "db-instance"
-    }]
-}
-no_update = {
-    "Events": []
-}
-
 
 def get_vars(extra=None):
     suffix = extra if extra else ""
@@ -443,3 +456,11 @@ def test_decrease_cooldown_not_met():
     assert(a.result['Action'] == 'NO_ACTION')
     assert(a.result['Message'] == 'Cooldown threshold invalidation')
 
+@freeze_time("2016-01-01 19:30:00", tz_offset=0)
+def test_increase_with_asg_size_bump():
+    test_yaml = get_vars()
+    a.testing_startup(test_yaml[0], test_yaml[1],
+                      asg_details_at_capacity, credit_low, launch_configs_credit)
+    assert(a.result['Action'] == 'MODIFY')
+    assert(a.result['Message'] == 'to_standard')
+    assert(a.result['AWS'][-1] == 'AWS: EXECUTE disabled - apply launch config 3/WebAppASGLaunchConfigC-ReC2-Fri-Jan-01-19.30.00-UTC-2016')

@@ -7,6 +7,17 @@ from dateutil import parser
 
 class rec2:
 
+    def __init__(self):
+        self.autoscaling_client = None
+        self.cloudwatch_client = None
+        self.now = None
+        self.vars = None
+        self.alarms = None
+        self.details = None
+        self.alarm_status = None
+        self.execute = None
+        self.result = None
+
     def lambda_startup(self):
         self.set_vars(
             yaml.load(file('vars.yaml')), yaml.load(file('alarms.yaml')))
@@ -40,6 +51,7 @@ class rec2:
         self.set_vars(_vars, _alarms)
         self.process(
             _asg_details, _alarm_status, _launch_configurations, False)
+        self.lambda_apply_action()
         self.print_logs()
 
     def set_vars(self, _vars, _alarms):
@@ -52,6 +64,10 @@ class rec2:
         self.result['Logs'].append(
             "{}: {}".format(self.result['Action'], self.result['Message']))
         return self.result
+
+    def awsinfo(self, msg):
+        self.result['AWS'].append("{}: {}".format("AWS", msg))
+        self.info(msg)
 
     def info(self, msg):
         self.result['Logs'].append("{}: {}".format("INFO", msg))
@@ -75,7 +91,8 @@ class rec2:
         self.result = {
             "Action": None,
             "Message": None,
-            "Logs": []
+            "Logs": [],
+            "AWS": []
         }
 
         for status in _alarm_status['MetricAlarms']:
@@ -177,10 +194,7 @@ class rec2:
             return self.abort("Cooldown threshold invalidation")
         self.new_class = self.vars[str(self.reason[3:]+"_instance_size")]
         self.info("Modifying Launch Config to {}".format(self.new_class))
-        if self.execute:
-            self.info("Executing scale command")
-        else:
-            self.info("Skipping scale command per passed in param")
+        self.info("Executing scale command")
         return self.success()
 
     def create_launch_configuration(self):
@@ -198,6 +212,9 @@ class rec2:
         for i in ['KeyName', 'KernelId', 'RamdiskId']:
             if to_copy[i] == '':
                 del(to_copy[i])
+        if not self.execute:
+            self.awsinfo("EXECUTE disabled - create_launch_config {}/{}".format(self.pending_launch_configuration,self.new_class))
+            return True
         try:
             self.autoscaling_client.create_launch_configuration(**to_copy)
             worked = True
@@ -208,6 +225,9 @@ class rec2:
 
     def add_action_tag(self):
         worked = False
+        if not self.execute:
+            self.awsinfo("EXECUTE disabled - add_action_tag {}".format(self.utc_launch_time))
+            return True
         try:
             self.autoscaling_client.create_or_update_tags(
                 Tags=[{
@@ -233,6 +253,9 @@ class rec2:
         }
         if desired_capacity > self.asg_details['MaxSize']:
             asg_dict['MaxSize'] = desired_capacity
+        if not self.execute:
+            self.awsinfo("EXECUTE disabled - apply launch config {}/{}".format(desired_capacity,self.pending_launch_configuration))
+            return True
         amz_res = self.autoscaling_client.update_auto_scaling_group(**asg_dict)
         self.info("AMZ response {}".format(amz_res))
 
