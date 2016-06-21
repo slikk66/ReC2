@@ -5,7 +5,7 @@ import pytz
 from freezegun import freeze_time
 
 rec2 = imp.load_source('rec2', './rec2/rec2.py')
-a = rec2.rec2()
+a = rec2.Rec2()
 
 # details
 asg_details = {
