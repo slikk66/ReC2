@@ -14,9 +14,13 @@ class rec2:
         self.vars = None
         self.alarms = None
         self.details = None
+        self.config = None
         self.alarm_status = None
         self.execute = None
         self.result = None
+        self.utc_launch_time = None
+        self.launch_configurations = None
+        self.pending_launch_configuration = None
 
     def lambda_startup(self):
         self.set_vars(
