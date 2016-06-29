@@ -13,6 +13,11 @@ role = t.add_resource(iam.Role(
                 Effect=Allow,
                 Principal=Principal('Service', 'lambda.amazonaws.com'),
                 Action=[Action('sts', 'AssumeRole')]
+            ),
+            Statement(
+                Effect=Allow,
+                Principal=Principal('Service', 'events.amazonaws.com'),
+                Action=[Action('sts', 'AssumeRole')]
             )
         ]
     ),

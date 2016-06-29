@@ -111,6 +111,6 @@
 
   - name: Clean up after ourselves
     file: path="{{ playbook_dir }}/{{ item }}" state=absent
-    with_items: working_dirs
+    with_items: "{{ working_dirs }}"
 
 ...
