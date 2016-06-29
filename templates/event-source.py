@@ -4,8 +4,8 @@ from troposphere import Template, Parameter, Ref, events
 
 t = Template()
 
-event_role = t.add_parameter(Parameter(
-    'EventRole',
+event_role_arn = t.add_parameter(Parameter(
+    'EventRoleArn',
     Type='String',
     Description='Event Role'
 ))
@@ -19,7 +19,7 @@ lambda_arn = t.add_parameter(Parameter(
 rule = t.add_resource(
     events.Rule(
         "ReC2",
-        RoleArn=Ref(event_role),
+        RoleArn=Ref(event_role_arn),
         Targets=[events.Target(
             Arn=Ref(lambda_arn),
             Id="ReC2"

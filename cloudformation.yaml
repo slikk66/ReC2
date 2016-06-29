@@ -117,7 +117,7 @@
     args:
         template_parameters:
             LambdaArn: "{{ lambda['stack_outputs']['LambdaFunctionArn'] }}"
-            EventRole: "{{ iam_event['stack_outputs']['EventRoleArn'] }}"
+            EventRoleArn: "{{ iam_event['stack_outputs']['EventRoleArn'] }}"
     register: lambda
 
   - name: Clean up after ourselves
