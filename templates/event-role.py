@@ -31,7 +31,8 @@ role = t.add_resource(iam.Role(
                 Statement(
                     Effect=Allow,
                     Action=[
-                        Action('logs', 'CreateLogGroup'),
+                        Action('lambda', 'Invoke'),
+                        Action('lambda', 'InvokeAsync')
                     ],
                     Resource=[Ref(lambda_arn)]
                 )
