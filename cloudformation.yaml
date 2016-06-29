@@ -16,7 +16,7 @@
 
   - name: Create the temporary directories
     file: dest={{ item }} state=directory
-    with_items: working_dirs
+    with_items: "{{ working_dirs }}"
 
   - name: Generate CloudFormation templates from troposphere
     local_action: >
@@ -106,7 +106,7 @@
     args:
         template_parameters:
             LambdaArn: "{{ lambda['stack_outputs']['LambdaFunctionArn'] }}"
-            LambdaRole: "{{ iam['stack_outputs']['LambdaRole'] }}"
+            LambdaRole: "{{ iam['stack_outputs']['LambdaRoleArn'] }}"
     register: lambda
 
   - name: Clean up after ourselves

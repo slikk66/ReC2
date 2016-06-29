@@ -18,7 +18,7 @@ lambda_arn = t.add_parameter(Parameter(
 
 rule = t.add_resource(
     events.Rule(
-        Name="ReC2",
+        "ReC2",
         RoleArn=Ref(lambda_role),
         Targets=[events.Target(
             Arn=Ref(lambda_arn),
