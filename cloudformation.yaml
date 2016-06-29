@@ -97,6 +97,17 @@
             LambdaRole: "{{ iam['stack_outputs']['LambdaRole'] }}"
     register: lambda
 
+  - name: Create Event Role
+    cloudformation: >
+        stack_name="{{ stack_prefix }}-event-role"
+        state=present
+        region="{{region}}"
+        template={{ playbook_dir }}/json/event-role.json
+    args:
+        template_parameters:
+            LambdaArn: "{{ lambda['stack_outputs']['LambdaFunctionArn'] }}"
+    register: iam_event
+
   - name: Create Event
     cloudformation: >
         stack_name="{{ stack_prefix }}-event-source"
@@ -106,7 +117,7 @@
     args:
         template_parameters:
             LambdaArn: "{{ lambda['stack_outputs']['LambdaFunctionArn'] }}"
-            LambdaRole: "{{ iam['stack_outputs']['LambdaRoleArn'] }}"
+            EventRole: "{{ iam_event['stack_outputs']['EventRoleArn'] }}"
     register: lambda
 
   - name: Clean up after ourselves
