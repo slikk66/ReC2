@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from troposphere import Template, Parameter, awslambda, Join, Ref, Output
+from troposphere import Template, Parameter, GetAtt, Join, Ref, Output, awslambda
 t = Template()
 
 lambda_role = t.add_parameter(Parameter(
@@ -38,8 +38,13 @@ lambda_function = t.add_resource(
 t.add_output([
     Output(
         'LambdaFunction',
-        Description='ReC2 Lambda Function',
+        Description='ReC2 Lambda Function ID',
         Value=Ref(lambda_function),
+    ),
+    Output(
+        'LambdaFunctionArn',
+        Description='ReC2 Lambda Function ARN',
+        Value=GetAtt(lambda_function.title, 'Arn')
     )
 ])
 
