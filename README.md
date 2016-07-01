@@ -23,9 +23,7 @@ Instructions:
 - Modify vars.yaml to meet your needs.
 - After loading a profile from AWS CLI that has admin access, run from root folder:
     **make prod** to install
-- This will create all the stacks, buckets, lambda, cloudwatch, IAM roles etc needed for this project
-
-- After creating, you will need to manually add in the repeating "event source" in the lambda console, there is no cloudformation or aws cli command yet that can enable the repeating of the lambda function.  Recommend 5 minute repeat. [Click for picture overview](http://imgur.com/a/RP2Jt)
+- This will create all the stacks, buckets, lambda, cloudwatch, IAM roles, event sources etc needed for this project
 
 This runs approxmiately 300,000 sec/month of lambda, well below the free tier for 128MB functions (3.2M) so it's free
 
