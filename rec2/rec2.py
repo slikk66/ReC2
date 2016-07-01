@@ -1,6 +1,6 @@
 from __future__ import print_function
-import boto3
 import yaml
+import boto3
 import datetime
 import pytz
 from dateutil import parser
@@ -24,6 +24,7 @@ class Rec2(object):
         self.pending_launch_configuration = None
         self.asg_details = None
         self.reason = None
+        self.new_class = None
 
     def lambda_startup(self):
         self.set_vars(
@@ -228,7 +229,6 @@ class Rec2(object):
             worked = True
         except:
             self.info("Launch Config creation failed!")
-            pass
         return worked
 
     def add_action_tag(self):
@@ -283,7 +283,7 @@ class Rec2(object):
 
 
 def lambda_handler(context, event):
-    r2 = Rec2()
-    r2.lambda_startup()
-    r2.lambda_apply_action()
-    r2.print_logs()
+    rec2lambda = Rec2()
+    rec2lambda.lambda_startup()
+    rec2lambda.lambda_apply_action()
+    rec2lambda.print_logs()
