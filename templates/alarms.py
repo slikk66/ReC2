@@ -83,7 +83,7 @@ low_credit_alarm = t.add_resource(
         Namespace="AWS/EC2",
         MetricName="CPUCreditBalance",
         Statistic="Average",
-        Period=300,
+        Period=60,
         Dimensions=[
             MetricDimension(
                 Name="AutoScalingGroupName",
@@ -106,7 +106,7 @@ drag_credit_alarm = t.add_resource(
         Namespace="AWS/EC2",
         MetricName="CPUCreditBalance",
         Statistic="Minimum",
-        Period=300,
+        Period=60,
         Dimensions=[
             MetricDimension(
                 Name="AutoScalingGroupName",
