@@ -82,7 +82,7 @@
 
   - name: Upload python files to S3 bucket
     local_action: >
-      shell aws s3 cp {{ playbook_dir }}/tmp/rec2-{{ time_token }}.zip s3://{{ s3['stack_outputs']['BucketName'] }}
+      shell aws --region {{region}} s3 cp {{ playbook_dir }}/tmp/rec2-{{ time_token }}.zip s3://{{ s3['stack_outputs']['BucketName'] }}
 
   - name: Create Lambda Function
     cloudformation: >
